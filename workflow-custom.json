@@ -1,0 +1,598 @@
+{
+  "name": "L2C-Real-20683-AIJobAlerts",
+  "id": "L2C206830001",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "20683C-n00",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "keywords",
+              "type": "string",
+              "value": "automation engineer"
+            },
+            {
+              "id": "s2",
+              "name": "profile",
+              "type": "string",
+              "value": "Senior automation engineer: n8n, Node.js, Python, AI agents, remote work"
+            },
+            {
+              "id": "s3",
+              "name": "claudeModel",
+              "type": "string",
+              "value": "deepseek-chat"
+            },
+            {
+              "id": "s4",
+              "name": "topN",
+              "type": "number",
+              "value": 3
+            },
+            {
+              "id": "s5",
+              "name": "feishuEnabled",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "id": "s6",
+              "name": "feishuAppId",
+              "type": "string",
+              "value": "YOUR_FEISHU_APP_ID"
+            },
+            {
+              "id": "s7",
+              "name": "feishuAppSecret",
+              "type": "string",
+              "value": "YOUR_FEISHU_APP_SECRET"
+            },
+            {
+              "id": "s8",
+              "name": "feishuChatId",
+              "type": "string",
+              "value": "YOUR_FEISHU_CHAT_ID"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "20683C-n01",
+      "name": "Search Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://remotive.com/api/remote-jobs?limit=8",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "20683C-n02",
+      "name": "Fetch Jobs (Remotive)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Apify 替代适配: Remotive 免费职位API -> 模板字段(id/title/company/city/applyUrl), 截前8条\nconst data = $input.first().json.jobs || [];\nconst pick = data.slice(0, 8);\nreturn pick.map(j => ({ json: { id: String(j.id), title: j.title, company: j.company_name,\n  city: j.candidate_required_location || 'Worldwide', applyUrl: j.url } }));\n"
+      },
+      "id": "20683C-n03",
+      "name": "Fetch Jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Google Sheets 替代: 本地 JSON 台账; 空表输出 1 空 item (=Always Output Data, 防 0-item 断链)\nconst fs = require('fs');\nlet rows = [];\ntry { rows = JSON.parse(fs.readFileSync('C:\\\\Users\\\\Administrator\\\\.easyclaw\\\\workspace\\\\n8n-lesson-crew\\\\state\\\\factory\\\\20683-l2\\\\seen.json', 'utf8')); } catch(e) {}\nif (!Array.isArray(rows)) rows = [];\nif (rows.length === 0) rows = [{}];\nreturn rows.map(r => ({ json: r }));\n"
+      },
+      "id": "20683C-n04",
+      "name": "Get Seen IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Search Settings').first().json;\nconst seenRows = $('Get Seen IDs').all();\nconst fetchedItems = $('Fetch Jobs').all();\n\n  const seen = new Set(seenRows.map(i => String(i.json.id || '')).filter(Boolean));\n  const fetched = fetchedItems.map(i => i.json).filter(j => j && j.id);\n  const jobs = [];\n  const ids = new Set();\n  for (const j of fetched) {\n    const id = String(j.id);\n    if (seen.has(id) || ids.has(id)) continue;\n    ids.add(id);\n    jobs.push({ id, title: j.title, company: j.company, location: j.city || j.country || 'Remote', applyUrl: j.applyUrl });\n  }\n  const list = jobs.map(j => j.id + ' | ' + j.title + ' | ' + j.company + ' | ' + j.location).join('\\n');\n  const prompt = 'You rate job fit. Candidate profile:\\n' + cfg.profile + '\\n\\nFor each job below (format: id | title | company | location) give an integer score 0-10 for how well it fits the candidate, and a reason of at most 12 words. Only title, company and location are known, so judge on those. Reply with ONLY a JSON array like [{\"id\":\"...\",\"score\":7,\"reason\":\"...\"}], one entry per job, no other text.\\n\\nJobs:\\n' + list;\n  return [{ json: { jobs, count: jobs.length, prompt, model: cfg.claudeModel, keywords: cfg.keywords, topN: cfg.topN } }];"
+      },
+      "id": "20683C-n05",
+      "name": "Filter & Prep",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "20683C-n06",
+      "name": "Any New Jobs?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1080,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_DEEPSEEK_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({model:'deepseek-chat',messages:[{role:'user',content:$json.prompt}]}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "20683C-n07",
+      "name": "Score with Claude (DeepSeek)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1260,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Claude->DeepSeek 响应适配: choices[0].message.content -> content[0].text (Merge Scores 原样不动)\nconst j = $input.first().json;\nconst text = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '';\nreturn [{ json: { model: j.model, content: [{ type: 'text', text }] } }];\n"
+      },
+      "id": "20683C-n08",
+      "name": "Adapt DS Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('Filter & Prep').first().json;\nconst inputJson = $input.first().json;\n\n  const scores = {};\n  try {\n    const txt = inputJson.content[0].text;\n    const arr = JSON.parse(txt.match(/\\[[\\s\\S]*\\]/)[0]);\n    for (const s of arr) scores[String(s.id)] = { score: Number(s.score), reason: String(s.reason || '') };\n  } catch (e) {}\n  const now = new Date().toISOString();\n  const rows = prep.jobs\n    .filter(j => scores[j.id] && !isNaN(scores[j.id].score))\n    .map(j => ({ ...j, score: scores[j.id].score, reason: scores[j.id].reason }));\n  if (!rows.length) throw new Error('Claude returned no readable scores. Check the Score with Claude node output; nothing was logged, so these jobs will be retried on the next run.');\n  rows.sort((a, b) => b.score - a.score);\n  const topN = Number(prep.topN) || 5;\n  return rows.map((r, i) => ({ json: { ...r, sent: i < topN, status: '', loggedAt: now, keywords: prep.keywords, total: rows.length } }));"
+      },
+      "id": "20683C-n09",
+      "name": "Merge Scores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allRows = $input.all();\n\n  const rows = allRows.map(i => i.json).filter(r => r.sent);\n  const total = rows.length ? rows[0].total : 0;\n  const label = rows.length ? (rows[0].keywords || 'all jobs') : 'all jobs';\n  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  const sc = r => (r.score === '' ? '?' : r.score) + '/10';\n  const header = 'Top ' + rows.length + ' of ' + total + ' new job(s) for \"' + label + '\":\\n\\n';\n  const lines = rows.map(r => '• [' + sc(r) + '] ' + r.title + ' @ ' + r.company + ' (' + r.location + ')\\n' + r.reason + '\\n' + r.applyUrl);\n  let out = header;\n  let shown = 0;\n  for (const l of lines) {\n    if ((out + l + '\\n\\n').length > 3900) break;\n    out += l + '\\n\\n';\n    shown++;\n  }\n  const text = shown < lines.length ? out.trimEnd() + '\\n\\n+' + (lines.length - shown) + ' more' : out.trimEnd();\n  const html = '<h3>Top ' + rows.length + ' of ' + total + ' new job(s) for \"' + esc(label) + '\"</h3><ul>' +\n    rows.map(r => '<li><b>[' + sc(r) + ']</b> <a href=\"' + esc(r.applyUrl) + '\">' + esc(r.title) + '</a> @ ' + esc(r.company) + ' (' + esc(r.location) + ')<br>' + esc(r.reason) + '</li>').join('') + '</ul>';\n  return [{ json: { text, html, subject: 'Job alert: ' + label, count: rows.length } }];"
+      },
+      "id": "20683C-n10",
+      "name": "Build Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Google Sheets 替代: 台账回写本地 JSON(全部打分行) + 更新 seen(供下轮去重)\nconst fs = require('fs');\nconst rows = $input.all().map(i => i.json);\nlet seen = [];\ntry { seen = JSON.parse(fs.readFileSync('C:\\\\Users\\\\Administrator\\\\.easyclaw\\\\workspace\\\\n8n-lesson-crew\\\\state\\\\factory\\\\20683-l2\\\\seen.json', 'utf8')); } catch(e) {}\nif (!Array.isArray(seen)) seen = [];\nconst ids = new Set(seen.map(r => String(r.id || '')));\nfor (const r of rows) { if (!ids.has(String(r.id))) { seen.push({ id: r.id, score: r.score, loggedAt: r.loggedAt }); ids.add(String(r.id)); } }\nfs.writeFileSync('C:\\\\Users\\\\Administrator\\\\.easyclaw\\\\workspace\\\\n8n-lesson-crew\\\\state\\\\factory\\\\20683-l2\\\\seen.json', JSON.stringify(seen, null, 1));\nfs.writeFileSync('C:\\\\Users\\\\Administrator\\\\.easyclaw\\\\workspace\\\\n8n-lesson-crew\\\\state\\\\factory\\\\20683-l2\\\\log.json', JSON.stringify(rows, null, 1));\nreturn [{ json: { logged: rows.length, seenTotal: seen.length } }];\n"
+      },
+      "id": "20683C-n11",
+      "name": "Log to Sheet",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const filterPrepFirst = $('Filter & Prep').first().json;\n\n  const label = filterPrepFirst.keywords || 'all jobs';\n  const text = 'No new jobs today for \"' + label + '\".';\n  return [{ json: { text, html: '<p>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</p>', subject: 'Job alert: ' + label, count: 0 } }];"
+      },
+      "id": "20683C-n12",
+      "name": "No New Jobs Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $('Search Settings').first().json.feishuEnabled }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "20683C-n13",
+      "name": "Telegram Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({app_id:$('Search Settings').first().json.feishuAppId,app_secret:$('Search Settings').first().json.feishuAppSecret}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "20683C-n14",
+      "name": "Feishu Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Feishu Token').first().json.tenant_access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({receive_id:$('Search Settings').first().json.feishuChatId,msg_type:'text',content:JSON.stringify({text:$('Telegram Enabled?').first().json.text})}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "20683C-n15",
+      "name": "Send Feishu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2340,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// 发送结果整型 (跟在 Send Feishu HTTP 后面)\nconst j = $input.first().json;\nreturn [{ json: { channel: 'feishu', sent: j.code === 0, messageId: j.data && j.data.message_id } }];\n"
+      },
+      "id": "20683C-n16",
+      "name": "Send Feishu Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = n => { try { return $(n).all().map(i => i.json); } catch(e) { return []; } };\nlet prepCount = -1; try { prepCount = $('Filter & Prep').first().json.count; } catch(e) {}\nconst merged = items('Merge Scores');\nconst lg = items('Log to Sheet');\nconst fs_ = items('Send Feishu Result');\nlet text = null;\ntry { text = $('Build Message').first().json.text; } catch(e) {}\nif (!text) { try { text = $('No New Jobs Message').first().json.text; } catch(e) {} }\nreturn [{ json: { e2e: true, prepCount, mergedCount: merged.length,\n  logged: lg.length ? lg[0].logged : -1, seenTotal: lg.length ? lg[0].seenTotal : -1,\n  feishuSent: fs_.length ? fs_[0].sent : null, feishuMsgId: fs_.length ? fs_[0].messageId : null,\n  sentRows: merged.filter(r => r.sent).length,\n  textHead: (text || '').slice(0, 80) } }];\n"
+      },
+      "id": "20683C-n17",
+      "name": "E2E Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Settings": {
+      "main": [
+        [
+          {
+            "node": "Fetch Jobs (Remotive)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Jobs (Remotive)": {
+      "main": [
+        [
+          {
+            "node": "Fetch Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Jobs": {
+      "main": [
+        [
+          {
+            "node": "Get Seen IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Seen IDs": {
+      "main": [
+        [
+          {
+            "node": "Filter & Prep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Prep": {
+      "main": [
+        [
+          {
+            "node": "Any New Jobs?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any New Jobs?": {
+      "main": [
+        [
+          {
+            "node": "Score with Claude (DeepSeek)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No New Jobs Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score with Claude (DeepSeek)": {
+      "main": [
+        [
+          {
+            "node": "Adapt DS Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adapt DS Response": {
+      "main": [
+        [
+          {
+            "node": "Merge Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Scores": {
+      "main": [
+        [
+          {
+            "node": "Build Message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No New Jobs Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Feishu Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "E2E Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feishu Token": {
+      "main": [
+        [
+          {
+            "node": "Send Feishu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Feishu": {
+      "main": [
+        [
+          {
+            "node": "Send Feishu Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Feishu Result": {
+      "main": [
+        [
+          {
+            "node": "E2E Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Sheet": {
+      "main": [
+        [
+          {
+            "node": "E2E Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "meta": {},
+  "active": false
+}
