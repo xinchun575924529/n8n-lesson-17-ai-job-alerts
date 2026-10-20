@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>n8n实战课16 · AI 岗位雷达</title>
+<style>
+body{margin:0;font-family:-apple-system,"Microsoft YaHei",sans-serif;background:#0d1b2a;color:#e0e6ed;line-height:1.7}
+.wrap{max-width:860px;margin:0 auto;padding:48px 20px}
+.badge{display:inline-block;background:#1b4965;color:#5fa8d3;border-radius:4px;padding:2px 10px;font-size:13px}
+h1{font-size:32px;margin:14px 0 8px}h2{color:#5fa8d3;border-left:4px solid #5fa8d3;padding-left:10px;margin-top:36px}
+.card{background:#16283c;border-radius:10px;padding:18px 22px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.kpi{font-size:26px;font-weight:700;color:#62b6cb}.dim{color:#8fa3b8;font-size:14px}
+code{background:#0a1420;padding:2px 6px;border-radius:4px;color:#f4d35e}
+a{color:#62b6cb}.pitfall{border-left:3px solid #e63946;padding-left:12px;margin:10px 0}
+footer{margin-top:48px;color:#56708a;font-size:13px;text-align:center}
+</style></head><body><div class="wrap">
+<span class="badge">n8n 实战课 · lesson-16</span>
+<h1>AI 岗位雷达</h1>
+<p class="dim">官方模板 20683（已下架，课程附完整镜像）· 15 功能节点 · Apify + Claude + Sheets + Telegram/Gmail → 中国免费替代版</p>
+<div class="grid">
+<div class="card"><div class="kpi">35/35</div><div class="dim">A 单元级断言</div></div>
+<div class="card"><div class="kpi">45/45</div><div class="dim">B mock 场景断言（8 场景）</div></div>
+<div class="card"><div class="kpi">E2E×2</div><div class="dim">C 真跑通过（Remotive+DeepSeek+飞书）</div></div>
+<div class="card"><div class="kpi">3+5</div><div class="dim">模板实锤坑 + 落地新坑（全带修复）</div></div>
+</div>
+<h2>它做什么</h2>
+<p>每天定时抓过去 24h 新岗位 → 台账三道闸去重 → AI 按你的简历逐岗打 0-10 分 → Top N 推送到手机，全部打分回写台账。一个永远不会重复打扰你的求职雷达。</p>
+<h2>最有教育价值的 3 个坑</h2>
+<div class="pitfall"><b>一个反斜杠，开箱即死</b>：Merge Scores 正则 <code>/[[sS]*]/</code> 两个反斜杠丢失，数据完全健康也必抛错全链终止（O1 场景实锤）</div>
+<div class="pitfall"><b>空台账 = 首跑静默断链</b>：0 item 则下游不执行——第一次运行就什么都发不出，执行结果还显示绿色「成功」</div>
+<div class="pitfall"><b>漏打分岗位静默延迟</b>：AI 少打几岗，那几岗不进消息也不落账，靠「不落账」机制明天自动重试</div>
+<h2>课程文件</h2>
+<p>📄 <a href="https://github.com/xinchun575924529/n8n-lesson-16-ai-job-alerts">GitHub 仓库</a>（workflow.json 下架前完整镜像 + workflow-custom.json 免费替代版 + 全套文档 + 练习含答案）</p>
+<h2>免费替代结论</h2>
+<p>Claude→DeepSeek（几分钱/天）· Apify→Remotive（免 key）· Sheets→本地 JSON/多维表 · Telegram/Gmail→飞书群。<b>全链零美元跑通。</b></p>
+<footer>n8n 实战课系列 · 只讲真跑过的工作流</footer>
+</div></body></html>
