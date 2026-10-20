@@ -1,4 +1,4 @@
-# n8n 实战课 16：AI 岗位雷达（AI-Scored Job Alerts）
+# n8n 实战课 17：AI 岗位雷达（AI-Scored Job Alerts）
 
 > 官方模板：[Send daily AI-scored job alerts with Apify Jobs, Claude, Google Sheets, Telegram and Gmail](https://n8n.io/workflows/20683/)（模板 ID 20683，⚠️已于 2026-10 中旬从官方库下架，本课程 `workflow.json` 为下架前完整镜像，15 功能节点 + 6 张教学便签）
 
